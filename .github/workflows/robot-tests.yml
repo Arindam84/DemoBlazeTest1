@@ -21,21 +21,29 @@ jobs:
         
     - name: Install dependencies
       run: |
+        echo "Installing Python packages..."
         python -m pip install --upgrade pip
-        pip install robotframework
-        pip install robotframework-seleniumlibrary
+        pip install robotframework==6.1.1
+        pip install robotframework-seleniumlibrary==6.1.0
+        pip install selenium==4.15.2
         pip install webdriver-manager
+        echo "Installed Python packages:"
+        pip list
         
-    - name: Install Chrome
+    - name: Install Chrome and Required Packages
       run: |
+        echo "Updating package lists..."
         sudo apt-get update
-        sudo apt-get install -y google-chrome-stable
+        echo "Installing Chrome and dependencies..."
+        sudo apt-get install -y google-chrome-stable xvfb
+        echo "Chrome version:"
+        google-chrome --version
         
-    - name: Install ChromeDriver
+    - name: Setup Display
       run: |
-        pip install selenium
-        pip install webdrivermanager
-        webdrivermanager chrome --linkpath /usr/local/bin
+        echo "Setting up Xvfb..."
+        Xvfb :99 -screen 0 1024x768x24 > /dev/null 2>&1 &
+        echo "export DISPLAY=:99" >> $GITHUB_ENV
         
     - name: Display Workspace Structure
       run: |
@@ -47,12 +55,29 @@ jobs:
         echo "\nPython packages installed:"
         pip list
         
-    - name: Run Robot Framework Tests
+    - name: Setup Webdriver
+      run: |
+        echo "Installing latest webdriver-manager..."
+        pip install webdriver-manager --upgrade
+        echo "Configuring Chrome options..."
+        echo "export PYTHONPATH=$PYTHONPATH:$(pwd)" >> $GITHUB_ENV
+        echo "export PATH=$PATH:/usr/local/bin" >> $GITHUB_ENV
+        
+    - name: Run Robot Framework Tests with Debug
       id: run_tests
       continue-on-error: true
       run: |
         mkdir -p reports
-        robot --outputdir reports --output output.xml --log log.html --report report.html TestCases/*.robot
+        echo "Running tests with increased verbosity..."
+        robot --outputdir reports \
+            --output output.xml \
+            --log log.html \
+            --report report.html \
+            --loglevel DEBUG \
+            --variable BROWSER:headlesschrome \
+            --variable SELENIUM_SPEED:0.1 \
+            TestCases/*.robot
+        echo "Test execution completed with exit code: $?"
         
     - name: Check Test Results Directory
       if: always()
