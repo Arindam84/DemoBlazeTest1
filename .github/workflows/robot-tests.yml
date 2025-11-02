@@ -21,7 +21,7 @@ jobs:
         
     - name: Install dependencies
       run: |
-        echo "Installing Python packages..."
+        echo "Installing Python packages......"
         python -m pip install --upgrade pip
         pip install robotframework==6.1.1
         pip install robotframework-seleniumlibrary==6.1.0

@@ -4,7 +4,11 @@ Resource    ../Application Configs/Application Variables.robot
 *** Variables ***
 *** Keywords ***
 Open Browser and Launch Application
-    Open Browser    https://demoblaze.com/     chrome             
+    ${options}=    Evaluate    selenium.webdriver.ChromeOptions()    selenium.webdriver
+    FOR    ${option}    IN    @{chrome_options.split(';')}
+        Call Method    ${options}    ${option}
+    END
+    Open Browser    https://demoblaze.com/    ${browser}    options=${options}
     Maximize Browser Window
 Click Log Out Element    [Arguments]    ${elementLocator}
     Log    Hello
