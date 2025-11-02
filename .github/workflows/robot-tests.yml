@@ -86,34 +86,77 @@ jobs:
         echo "export PYTHONPATH=$PYTHONPATH:$(pwd)" >> $GITHUB_ENV
         echo "export PATH=$PATH:/usr/local/bin" >> $GITHUB_ENV
         
-    - name: Run Robot Framework Tests with Debug
+    - name: Create Common Resource File
+      run: |
+        cat << 'EOF' > common.robot
+        *** Settings ***
+        Library    SeleniumLibrary
+        
+        *** Keywords ***
+        Open Browser and Launch Application
+            ${chrome_options}=    Evaluate    selenium.webdriver.ChromeOptions()    selenium.webdriver
+            Call Method    ${chrome_options}    add_argument    --headless
+            Call Method    ${chrome_options}    add_argument    --no-sandbox
+            Call Method    ${chrome_options}    add_argument    --disable-dev-shm-usage
+            Call Method    ${chrome_options}    add_argument    --disable-gpu
+            Open Browser    https://demoblaze.com/    chrome    options=${chrome_options}
+            Maximize Browser Window
+        EOF
+        
+    - name: Run Robot Framework Tests
       id: run_tests
       continue-on-error: true
       run: |
         mkdir -p reports
         echo "Running tests with increased verbosity..."
-        robot --outputdir reports \
-            --output output.xml \
-            --log log.html \
-            --report report.html \
-            --loglevel DEBUG \
-            --variable browser:headlesschrome \
-            --variable SELENIUM_TIMEOUT:20 \
-            --variable SELENIUM_IMPLICIT_WAIT:10 \
-            TestCases/*.robot || true
-        echo "Test execution completed with exit code: $?"
         
-        # Display test execution logs if they exist
-        if [ -f "reports/log.html" ]; then
-          echo "Test log file exists. Checking for errors..."
-          grep -i "error" reports/log.html || echo "No errors found in log file"
+        # Create a simple script to parse output.xml
+        cat << 'EOF' > parse_results.py
+        from robot.api import ExecutionResult
+        
+        def print_results():
+            result = ExecutionResult('reports/output.xml')
+            print(f'Total Tests: {result.statistics.total}')
+            print(f'Passed: {result.statistics.passed}')
+            print(f'Failed: {result.statistics.failed}')
+            print('\nFailed Test Cases:')
+            for test in result.suite.tests:
+                if not test.passed:
+                    print(f'\nTest: {test.name}')
+                    print(f'Message: {test.message}')
+        
+        if __name__ == '__main__':
+            print_results()
+        EOF
+        
+        # Run the tests
+        robot --outputdir reports \
+             --output output.xml \
+             --log log.html \
+             --report report.html \
+             --loglevel TRACE \
+             --variable SELENIUM_TIMEOUT:20 \
+             --variable SELENIUM_IMPLICIT_WAIT:10 \
+             --pythonpath . \
+             TestCases/*.robot
+        
+        EXIT_CODE=$?
+        echo "Test execution completed with exit code: $EXIT_CODE"
+        
+        # Parse and display results
+        if [ -f "reports/output.xml" ]; then
+          echo -e "\nTest Execution Results:"
+          python parse_results.py
         fi
         
-        # Display Python environment info for debugging
-        echo "Python environment info:"
-        python -c "import sys; print(sys.version)"
-        python -c "import selenium; print(f'Selenium version: {selenium.__version__}')"
-        python -c "from selenium import webdriver; print(f'Available webdriver: {webdriver.__file__}')"
+        # Check for specific error patterns in the log
+        if [ -f "reports/log.html" ]; then
+          echo "\nChecking for common errors in log file..."
+          echo "Connection errors:"
+          grep -i "connection refused\|timeout\|unable to connect" reports/log.html || echo "No connection errors found"
+          echo "\nWebDriver errors:"
+          grep -i "webdriver\|chrome\|browser" reports/log.html || echo "No WebDriver errors found"
+        fi
         
     - name: Check Test Results Directory
       if: always()
