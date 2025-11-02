@@ -1,0 +1,29 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+
+# Environment folders
+.env/
+venv/
+.envrc
+
+# Robot Framework output directories and files
+output.xml
+log.html
+report.html
+results/
+*.log
+
+# IDE and editor specific files
+.vscode/
+.idea/
+*.swp
+
+# Others
+.DS_Store
+*.png
