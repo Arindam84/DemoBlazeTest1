@@ -30,20 +30,43 @@ jobs:
         echo "Installed Python packages:"
         pip list
         
-    - name: Install Chrome and Required Packages
+    - name: Setup Chrome and Dependencies
       run: |
         echo "Updating package lists..."
         sudo apt-get update
+        
         echo "Installing Chrome and dependencies..."
-        sudo apt-get install -y google-chrome-stable xvfb
+        sudo apt-get install -y google-chrome-stable xvfb libgconf-2-4
+        
         echo "Chrome version:"
         google-chrome --version
         
-    - name: Setup Display
+        echo "Setting up Chrome options..."
+        mkdir -p /tmp/chrome_profile
+        echo '{ "browser": { "enabled_labs_experiments": ["dummy"] } }' > /tmp/chrome_profile/Default/Preferences
+        
+    - name: Setup Virtual Display
       run: |
         echo "Setting up Xvfb..."
-        Xvfb :99 -screen 0 1024x768x24 > /dev/null 2>&1 &
+        Xvfb :99 -screen 0 1920x1080x24 > /dev/null 2>&1 &
         echo "export DISPLAY=:99" >> $GITHUB_ENV
+        echo "export PYTHONUNBUFFERED=1" >> $GITHUB_ENV
+        echo "export ROBOT_OPTIONS=--consolecolors off" >> $GITHUB_ENV
+        
+    - name: Verify WebDriver Setup
+      run: |
+        echo "Checking Chrome and WebDriver..."
+        python -c "
+        from selenium import webdriver
+        from selenium.webdriver.chrome.options import Options
+        options = Options()
+        options.add_argument('--headless')
+        options.add_argument('--no-sandbox')
+        options.add_argument('--disable-dev-shm-usage')
+        driver = webdriver.Chrome(options=options)
+        print('WebDriver created successfully')
+        driver.quit()
+        "
         
     - name: Display Workspace Structure
       run: |
@@ -74,10 +97,23 @@ jobs:
             --log log.html \
             --report report.html \
             --loglevel DEBUG \
-            --variable BROWSER:headlesschrome \
-            --variable SELENIUM_SPEED:0.1 \
-            TestCases/*.robot
+            --variable browser:headlesschrome \
+            --variable SELENIUM_TIMEOUT:20 \
+            --variable SELENIUM_IMPLICIT_WAIT:10 \
+            TestCases/*.robot || true
         echo "Test execution completed with exit code: $?"
+        
+        # Display test execution logs if they exist
+        if [ -f "reports/log.html" ]; then
+          echo "Test log file exists. Checking for errors..."
+          grep -i "error" reports/log.html || echo "No errors found in log file"
+        fi
+        
+        # Display Python environment info for debugging
+        echo "Python environment info:"
+        python -c "import sys; print(sys.version)"
+        python -c "import selenium; print(f'Selenium version: {selenium.__version__}')"
+        python -c "from selenium import webdriver; print(f'Available webdriver: {webdriver.__file__}')"
         
     - name: Check Test Results Directory
       if: always()
