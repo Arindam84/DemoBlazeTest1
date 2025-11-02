@@ -37,16 +37,17 @@ jobs:
         pip install webdrivermanager
         webdrivermanager chrome --linkpath /usr/local/bin
         
+    - name: Create results directory
+      run: |
+        mkdir -p results
+
     - name: Run Robot Framework Tests
       run: |
-        robot --outputdir TestCases TestCases/*.robot
+        robot --outputdir results TestCases/*.robot
         
     - name: Upload Test Results
       if: always()
       uses: actions/upload-artifact@v4
       with:
         name: robot-test-results
-        path: |
-          TestCases/log.html
-          TestCases/report.html
-          TestCases/output.xml
+        path: results/
