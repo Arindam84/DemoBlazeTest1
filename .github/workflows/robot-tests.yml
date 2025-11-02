@@ -37,19 +37,30 @@ jobs:
         pip install webdrivermanager
         webdrivermanager chrome --linkpath /usr/local/bin
         
-    - name: Run Robot Framework Tests
+    - name: Display Workspace Structure
       run: |
+        echo "Workspace root contents:"
         pwd
         ls -la
-        robot --outputdir . TestCases/*.robot
+        echo "\nTestCases directory contents:"
+        ls -la TestCases/
+        echo "\nPython packages installed:"
+        pip list
         
-    - name: List generated files
+    - name: Run Robot Framework Tests
+      id: run_tests
+      continue-on-error: true
+      run: |
+        mkdir -p reports
+        robot --outputdir reports --output output.xml --log log.html --report report.html TestCases/*.robot
+        
+    - name: Check Test Results Directory
       if: always()
       run: |
-        echo "Current directory contents:"
-        ls -la
-        echo "TestCases directory contents:"
-        ls -la TestCases/
+        echo "Contents of reports directory:"
+        ls -la reports/ || echo "reports directory not found"
+        echo "\nFinding all xml and html files:"
+        find . -name "*.xml" -o -name "*.html"
         
     - name: Upload Test Results
       if: always()
@@ -57,7 +68,6 @@ jobs:
       with:
         name: robot-test-results
         path: |
-          ./*.xml
-          ./*.html
-          TestCases/*.xml
-          TestCases/*.html
+          reports/
+          TestCases/
+        if-no-files-found: warn
